@@ -3,6 +3,7 @@
 # build php fileinfo extension for each major PHP
 # version 5.4, 5.5, 5.6, 7.0, 7.1, 7.2, 7.3
 ##################################################
+SILENT='n'
 
 CENTOSVER=$(awk '{ print $3 }' /etc/redhat-release)
 
@@ -31,11 +32,15 @@ if [[ -f /etc/system-release && "$(awk '{print $1,$2,$3}' /etc/system-release)" 
 fi
 
 buildmodule() {
-
+  setver=$1
   cd /svr-setup
   wget -q -O get-php-ver.sh https://github.com/centminmod/get-php-versions/raw/master/get-php-ver.sh
   chmod +x get-php-ver.sh
-  phpversions=$(bash get-php-ver.sh | sort -r)
+  phpversions=$(bash get-php-ver.sh)
+  if [ "$setver" ]; then
+    phpversions="$setver"
+    echo "phpversions=$phpversions"
+  fi
   echo "$phpversions"
   echo "downloading php versions..."
   for phpver in $phpversions; do
@@ -56,22 +61,16 @@ buildmodule() {
     if [[ ! -f /usr/bin/icu-config ]]; then
       if [[ "$NEWLIBICU" = [yY] && "$CENTOS_SEVEN" = '7' && -f /etc/yum.repos.d/remi.repo && -f /etc/yum.repos.d/rpmforge.repo ]]; then
         yum -q -y install libicu62 libicu62-devel --enablerepo=remi --disablerepo=rpmforge,epel
-        sar_call
       elif [[ "$NEWLIBICU" = [yY] && "$CENTOS_SEVEN" = '7' && -f /etc/yum.repos.d/remi.repo && ! -f /etc/yum.repos.d/rpmforge.repo ]]; then
         yum -q -y install libicu62 libicu62-devel --enablerepo=remi --disablerepo=epel
-        sar_call
       elif [[ "$CENTOS_SIX" = '6' && -f /etc/yum.repos.d/remi.repo && -f /etc/yum.repos.d/rpmforge.repo ]]; then
         yum -q -y install libicu-last libicu-last-devel --enablerepo=remi --disablerepo=rpmforge,epel
-        sar_call
       elif [[ "$CENTOS_SIX" = '6' && -f /etc/yum.repos.d/remi.repo && ! -f /etc/yum.repos.d/rpmforge.repo ]]; then
         yum -q -y install libicu-last libicu-last-devel --enablerepo=remi --disablerepo=epel
-        sar_call
       elif [ -f /etc/yum.repos.d/rpmforge.repo ]; then
         yum -q -y install libicu libicu-devel --disablerepo=rpmforge,epel
-        sar_call
       else
         yum -q -y install libicu libicu-devel --disablerepo=epel
-        sar_call
       fi
     fi
     if [[ "$NEWLIBICU" = [yY] && "$CENTOS_SEVEN" = '7' && -f /etc/yum.repos.d/remi.repo && -f /usr/bin/icu-config && "$(/usr/bin/icu-config --version| cut -d . -f1)" -lt '62' ]]; then
@@ -84,15 +83,14 @@ buildmodule() {
       # update centos 7 libicu 50.1 version to remi yum repo provided libicu 62.1 version
       if [ "$(rpm -ql libicu62)" ]; then
         yum -y remove libicu62 --enablerepo=remi
+        if [ -f /etc/yum.repos.d/rpmforge.repo ]; then
+          yum -y install libicu-devel --disablerepo=rpmforge,epel
+        else
+          yum -y install libicu-devel --disablerepo=epel
+        fi
       fi
       if [ "$(rpm -ql libicu62-devel)" ]; then
         yum -y swap libicu62-devel libicu-devel --enablerepo=remi
-      else
-        if [ -f /etc/yum.repos.d/rpmforge.repo ]; then
-          yum -q -y install libicu-devel --disablerepo=rpmforge,epel
-        else
-          yum -q -y install libicu-devel --disablerepo=epel
-        fi
       fi
     fi
   
@@ -111,11 +109,20 @@ buildmodule() {
     ./buildconf --force
     mkdir -p fpm-build
     cd fpm-build
-    make clean >/dev/null 2>&1
-    ../configure --enable-fpm --enable-opcache --enable-intl --enable-pcntl --with-mcrypt --with-snmp --enable-embed=shared --with-mhash --with-zlib --with-gettext --enable-exif --enable-zip --with-libzip --with-bz2 --enable-soap --enable-sockets --enable-sysvmsg --enable-sysvsem --enable-sysvshm --enable-shmop --with-pear --enable-mbstring --with-openssl --with-mysql=mysqlnd --with-libdir=lib64 --with-mysqli=mysqlnd --with-mysql-sock=/var/lib/mysql/mysql.sock --with-curl --with-gd --with-xmlrpc --enable-bcmath --enable-calendar --enable-ftp --enable-gd-native-ttf --with-freetype-dir=/usr --with-jpeg-dir=/usr --with-png-dir=/usr --with-xpm-dir=/usr --with-webp-dir=/usr --with-t1lib=/usr --enable-pdo --with-pdo-sqlite --with-pdo-mysql=mysqlnd --enable-inline-optimization --with-imap --with-imap-ssl --with-kerberos --with-readline --with-libedit --with-gmp --with-pspell --with-tidy --with-enchant --with-fpm-user=nginx --with-fpm-group=nginx --with-ldap --with-ldap-sasl --with-password-argon2 --with-sodium --with-config-file-scan-dir=/etc/centminmod/php.d --with-xsl
+    if [[ "$SILENT" = [yY] ]]; then
+      make clean >/dev/null 2>&1
+    else
+      make clean
+    fi
+    ../configure --enable-fpm --enable-opcache --enable-intl --enable-pcntl --with-mcrypt --with-snmp --enable-embed=shared --with-mhash --with-zlib --with-gettext --enable-exif --enable-zip --with-bz2 --enable-soap --enable-sockets --enable-sysvmsg --enable-sysvsem --enable-sysvshm --enable-shmop --with-pear --enable-mbstring --with-openssl --with-mysql=mysqlnd --with-libdir=lib64 --with-mysqli=mysqlnd --with-mysql-sock=/var/lib/mysql/mysql.sock --with-curl --with-gd --with-xmlrpc --enable-bcmath --enable-calendar --enable-ftp --enable-gd-native-ttf --with-freetype-dir=/usr --with-jpeg-dir=/usr --with-png-dir=/usr --with-xpm-dir=/usr --with-webp-dir=/usr --with-t1lib=/usr --enable-pdo --with-pdo-sqlite --with-pdo-mysql=mysqlnd --enable-inline-optimization --with-imap --with-imap-ssl --with-kerberos --with-readline --with-libedit --with-gmp --with-pspell --with-tidy --with-enchant --with-fpm-user=nginx --with-fpm-group=nginx --with-ldap --with-ldap-sasl --with-config-file-scan-dir=/etc/centminmod/php.d --with-xsl
     echo "php-$phpver make"
-    echo "make -j$(nproc) >/dev/null 2>&1"
-    make -j$(nproc) >/dev/null 2>&1
+    if [[ "$SILENT" = [yY] ]]; then
+      echo "make -j$(nproc) >/dev/null 2>&1"
+      make -j$(nproc) >/dev/null 2>&1
+    else
+      echo "make -j$(nproc)"
+      make -j$(nproc)
+    fi
     err=$?
     if [[ "$err" -ne '0' ]]; then
       echo "error: make failed"
@@ -129,12 +136,26 @@ buildmodule() {
     echo "build fileinfo extension"
     echo "-------------------------------------------------"
     cd "/svr-setup/php-$phpver/ext/fileinfo"
-    make clean >/dev/null 2>&1
-    bash "/svr-setup/php-$phpver/fpm-build/scripts/phpize"
-    ./configure -q
+    if [[ "$SILENT" = [yY] ]]; then
+      make clean >/dev/null 2>&1
+    else
+      make clean
+    fi
+    # bash "/svr-setup/php-$phpver/fpm-build/scripts/phpize"
+    phpize
+    if [[ "$SILENT" = [yY] ]]; then
+      ./configure -q
+    else
+      ./configure
+    fi
     echo "php-$phpver make fileinfo"
-    echo "make -j$(nproc) >/dev/null 2>&1"
-    make -j$(nproc) >/dev/null 2>&1
+    if [[ "$SILENT" = [yY] ]]; then
+      echo "make -j$(nproc) >/dev/null 2>&1"
+      make -j$(nproc) >/dev/null 2>&1
+    else
+      echo "make -j$(nproc)"
+      make -j$(nproc)
+    fi
     err=$?
     if [[ "$err" -ne '0' ]]; then
       echo "error: make failed"
@@ -157,4 +178,4 @@ buildmodule() {
   done
 }
 
-buildmodule
+buildmodule $1
