@@ -142,11 +142,12 @@ buildmodule() {
       make clean
     fi
     # bash "/svr-setup/php-$phpver/fpm-build/scripts/phpize"
+    chmod +x "/svr-setup/php-${phpver}/fpm-build/scripts/php-config"
     phpize
     if [[ "$SILENT" = [yY] ]]; then
-      ./configure -q
+      ./configure -q --with-php-config="/svr-setup/php-${phpver}/fpm-build/scripts/php-config"
     else
-      ./configure
+      ./configure --with-php-config="/svr-setup/php-${phpver}/fpm-build/scripts/php-config"
     fi
     echo "php-$phpver make fileinfo"
     if [[ "$SILENT" = [yY] ]]; then
