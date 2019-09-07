@@ -6,8 +6,12 @@ phpversions='/tmp/phpversions.txt'
 
 getversions() {
   phpver_tag=$1
-  phpfile_age=$(echo $(( $(date +%s) - $(date +%s -r "$phpversions") )))
-  if [[ "$phpfile_age" -gt '7200' ]]; then
+  if [ -f "$phpversions" ]; then
+    phpfile_age=$(echo $(( $(date +%s) - $(date +%s -r "$phpversions") )))
+  else
+    phpfile_age=7201
+  fi
+  if [[ "$phpfile_age" -gt '7200' || ! -f "$phpversions" ]]; then
     echo > "$phpversions"
     curl -s "https://api.github.com/repos/php/php-src/tags?per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
     curl -s "https://api.github.com/repos/php/php-src/tags?page=2&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
