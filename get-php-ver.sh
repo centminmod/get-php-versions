@@ -25,6 +25,7 @@ getversions() {
     curl -s "https://api.github.com/repos/php/php-src/tags?page=10&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
   fi
 if [[ "$phpver_tag" = 'all' ]]; then
+  cat "$phpversions" | grep -m1 '8.0.' | sed -e 's|php-||'
   cat "$phpversions" | grep -m1 '7.4.' | sed -e 's|php-||'
   cat "$phpversions" | grep -m1 '7.3.' | sed -e 's|php-||'
   cat "$phpversions" | grep -m1 '7.2.' | sed -e 's|php-||'
@@ -34,6 +35,8 @@ if [[ "$phpver_tag" = 'all' ]]; then
   cat "$phpversions" | grep -m1 '5.5.' | sed -e 's|php-||'
   #cat "$phpversions" | grep -m1 '5.4.' | sed -e 's|php-||'
   #cat "$phpversions" | grep -m1 '5.3.' | sed -e 's|php-||'
+elif [[ "$phpver_tag" = '80' ]]; then
+  cat "$phpversions" | grep -m1 '8.0.' | sed -e 's|php-||'
 elif [[ "$phpver_tag" = '74' ]]; then
   cat "$phpversions" | grep -m1 '7.4.' | sed -e 's|php-||'
 elif [[ "$phpver_tag" = '73' ]]; then
@@ -52,6 +55,9 @@ fi
 }
 
 case "$1" in
+  80 )
+    getversions 80
+    ;;
   74 )
     getversions 74
     ;;
