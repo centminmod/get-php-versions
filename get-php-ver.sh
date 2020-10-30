@@ -4,6 +4,10 @@
 #################################################
 phpversions='/tmp/phpversions.txt'
 
+if [ ! -f /usr/bin/jq ]; then
+  yum -q -y install jq
+fi
+
 getversions() {
   phpver_tag=$1
   if [ -f "$phpversions" ]; then
