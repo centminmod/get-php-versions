@@ -17,86 +17,25 @@ getversions() {
   fi
   if [[ "$phpfile_age" -gt '7200' || ! -f "$phpversions" ]]; then
     echo > "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=2&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=3&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=4&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=5&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=6&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=7&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=8&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=9&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=10&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=11&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=12&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
-    curl -s "https://api.github.com/repos/php/php-src/tags?page=13&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
+    for page in {1..13}; do
+      curl -s "https://api.github.com/repos/php/php-src/tags?page=${page}&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
+    done
   fi
-if [[ "$phpver_tag" = 'all' ]]; then
-  cat "$phpversions" | grep -m1 '8.2.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '8.1.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '8.0.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '7.4.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '7.3.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '7.2.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '7.1.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '7.0.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '5.6.' | sed -e 's|php-||'
-  cat "$phpversions" | grep -m1 '5.5.' | sed -e 's|php-||'
-  #cat "$phpversions" | grep -m1 '5.4.' | sed -e 's|php-||'
-  #cat "$phpversions" | grep -m1 '5.3.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '82' ]]; then
-  cat "$phpversions" | grep -m1 '8.2.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '81' ]]; then
-  cat "$phpversions" | grep -m1 '8.1.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '80' ]]; then
-  cat "$phpversions" | grep -m1 '8.0.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '74' ]]; then
-  cat "$phpversions" | grep -m1 '7.4.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '73' ]]; then
-  cat "$phpversions" | grep -m1 '7.3.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '72' ]]; then
-  cat "$phpversions" | grep -m1 '7.2.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '71' ]]; then
-  cat "$phpversions" | grep -m1 '7.1.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '70' ]]; then
-  cat "$phpversions" | grep -m1 '7.0.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '56' ]]; then
-  cat "$phpversions" | grep -m1 '5.6.' | sed -e 's|php-||'
-elif [[ "$phpver_tag" = '55' ]]; then
-  cat "$phpversions" | grep -m1 '5.5.' | sed -e 's|php-||'
-fi
+
+  if [[ "$phpver_tag" = 'all' ]]; then
+    versions_list=('8.2.' '8.1.' '8.0.' '7.4.' '7.3.' '7.2.' '7.1.' '7.0.' '5.6.' '5.5.')
+  else
+    versions_list=("${phpver_tag:0:1}.${phpver_tag:1}.")
+  fi
+
+  for version in "${versions_list[@]}"; do
+    cat "$phpversions" | grep -m1 "${version}" | sed -e 's|php-||'
+  done
 }
 
 case "$1" in
-  82 )
-    getversions 82
-    ;;
-  81 )
-    getversions 81
-    ;;
-  80 )
-    getversions 80
-    ;;
-  74 )
-    getversions 74
-    ;;
-  73 )
-    getversions 73
-    ;;
-  72 )
-    getversions 72
-    ;;
-  71 )
-    getversions 71
-    ;;
-  70 )
-    getversions 70
-    ;;
-  56 )
-    getversions 56
-    ;;
-  55 )
-    getversions 55
+  82|81|80|74|73|72|71|70|56|55 )
+    getversions "$1"
     ;;
   * )
     getversions all
