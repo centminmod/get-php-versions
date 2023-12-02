@@ -23,7 +23,13 @@ getversions() {
   fi
 
   if [[ "$phpver_tag" = 'all' ]]; then
-    versions_list=('8.2.' '8.1.' '8.0.' '7.4.' '7.3.' '7.2.' '7.1.' '7.0.' '5.6.' '5.5.')
+    versions_list=('8.3.' '8.2.' '8.1.' '8.0.' '7.4.' '7.3.' '7.2.' '7.1.' '7.0.' '5.6.' '5.5.')
+  elif [[ "$phpver_tag" = '8' ]]; then
+    versions_list=('8.3.' '8.2.' '8.1.' '8.0.')
+  elif [[ "$phpver_tag" = '7' ]]; then
+    versions_list=('7.4.' '7.3.' '7.2.' '7.1.' '7.0.')
+  elif [[ "$phpver_tag" = '5' ]]; then
+    versions_list=('5.6.' '5.5.')
   else
     versions_list=("${phpver_tag:0:1}.${phpver_tag:1}.")
   fi
@@ -34,7 +40,16 @@ getversions() {
 }
 
 case "$1" in
-  82|81|80|74|73|72|71|70|56|55 )
+  83|82|81|80|74|73|72|71|70|56|55 )
+    getversions "$1"
+    ;;
+  8)
+    getversions "$1"
+    ;;
+  7)
+    getversions "$1"
+    ;;
+  5)
     getversions "$1"
     ;;
   * )
