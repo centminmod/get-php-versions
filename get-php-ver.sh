@@ -18,7 +18,7 @@ getversions() {
   if [[ "$phpfile_age" -gt '7200' || ! -f "$phpversions" ]]; then
     echo > "$phpversions"
     for page in {1..13}; do
-      curl -s "https://api.github.com/repos/php/php-src/tags?page=${page}&per_page=500" | jq -r '.[].name' | grep 'php-' | egrep -iv 'alpha|beta|rc' >> "$phpversions"
+      curl -s "https://api.github.com/repos/php/php-src/tags?page=${page}&per_page=500" | jq -r '.[].name' | grep 'php-' | grep -E -iv 'alpha|beta|rc' >> "$phpversions"
     done
   fi
 
