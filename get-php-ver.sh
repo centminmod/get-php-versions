@@ -8,18 +8,42 @@ if [ ! -f /usr/bin/jq ]; then
   yum -q -y install jq
 fi
 
+refresh_versions() {
+  # Build the tag list in a temp file and only replace the cache when it holds
+  # release tags, so a failed or rate-limited fetch never leaves an empty cache
+  local tmp
+  tmp=$(mktemp "${phpversions}.XXXXXX") || return 1
+  # one git request, not subject to the GitHub API's 60 requests/hour limit
+  if command -v git >/dev/null 2>&1; then
+    timeout 30 git ls-remote --tags --refs https://github.com/php/php-src.git 'php-*' 2>/dev/null | awk -F'refs/tags/' '{print $2}' | grep -E '^php-[0-9]+\.[0-9]+\.[0-9]+$' | sort -t- -k2 -V -r > "$tmp"
+  fi
+  # fallback: GitHub tags API
+  if ! grep -q '^php-[0-9]' "$tmp" && command -v jq >/dev/null 2>&1; then
+    for page in {1..13}; do
+      curl -s "https://api.github.com/repos/php/php-src/tags?page=${page}&per_page=500" | jq -r '.[].name' 2>/dev/null | grep -E '^php-[0-9]+\.[0-9]+\.[0-9]+$' >> "$tmp"
+    done
+    sort -t- -k2 -V -r -o "$tmp" "$tmp"
+  fi
+  if grep -q '^php-[0-9]' "$tmp"; then
+    chmod 0644 "$tmp"
+    mv -f "$tmp" "$phpversions"
+  else
+    rm -f "$tmp"
+    # keep the last good list and mark it fresh, so an outage is not retried on every call
+    [ -s "$phpversions" ] && touch "$phpversions"
+  fi
+}
+
 getversions() {
   phpver_tag=$1
   if [ -f "$phpversions" ]; then
-    phpfile_age=$(echo $(( $(date +%s) - $(date +%s -r "$phpversions") )))
+    phpfile_age=$(( $(date +%s) - $(date +%s -r "$phpversions") ))
   else
     phpfile_age=7201
   fi
-  if [[ "$phpfile_age" -gt '7200' || ! -f "$phpversions" ]]; then
-    echo > "$phpversions"
-    for page in {1..13}; do
-      curl -s "https://api.github.com/repos/php/php-src/tags?page=${page}&per_page=500" | jq -r '.[].name' | grep 'php-' | grep -E -iv 'alpha|beta|rc' >> "$phpversions"
-    done
+  # refresh when older than 2 hours, or when the cache holds no release tags
+  if [[ "$phpfile_age" -gt '7200' ]] || ! grep -q '^php-[0-9]' "$phpversions" 2>/dev/null; then
+    refresh_versions
   fi
 
   if [[ "$phpver_tag" = 'all' ]]; then
@@ -35,7 +59,7 @@ getversions() {
   fi
 
   for version in "${versions_list[@]}"; do
-    cat "$phpversions" | grep -m1 "${version}" | sed -e 's|php-||'
+    grep -m1 "^php-${version//./\\.}" "$phpversions" 2>/dev/null | sed -e 's|php-||'
   done
 }
 
