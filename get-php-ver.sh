@@ -4,33 +4,50 @@
 #################################################
 phpversions='/tmp/phpversions.txt'
 
-if [ ! -f /usr/bin/jq ]; then
-  yum -q -y install jq
-fi
-
 refresh_versions() {
-  # Build the tag list in a temp file and only replace the cache when it holds
-  # release tags, so a failed or rate-limited fetch never leaves an empty cache
-  local tmp
+  # Build the tag list in a temp file and only replace the cache with a
+  # complete list: the fetch must finish, and the list must not shrink
+  # (php-src only adds tags). A failed, cut-off or rate-limited fetch keeps
+  # the last good list.
+  local tmp ok=n page tags names old_count new_count
   tmp=$(mktemp "${phpversions}.XXXXXX") || return 1
+  trap 'rm -f "$tmp"' EXIT
   # one git request, not subject to the GitHub API's 60 requests/hour limit
   if command -v git >/dev/null 2>&1; then
-    timeout 30 git ls-remote --tags --refs https://github.com/php/php-src.git 'php-*' 2>/dev/null | awk -F'refs/tags/' '{print $2}' | grep -E '^php-[0-9]+\.[0-9]+\.[0-9]+$' | sort -t- -k2 -V -r > "$tmp"
+    if tags=$(timeout 30 git ls-remote --tags --refs https://github.com/php/php-src.git 'php-*' 2>/dev/null); then
+      printf '%s\n' "$tags" | awk -F'refs/tags/' '{print $2}' | grep -E '^php-[0-9]+\.[0-9]+\.[0-9]+$' > "$tmp" && ok=y
+    fi
   fi
-  # fallback: GitHub tags API
-  if ! grep -q '^php-[0-9]' "$tmp" && command -v jq >/dev/null 2>&1; then
-    for page in {1..13}; do
-      curl -s "https://api.github.com/repos/php/php-src/tags?page=${page}&per_page=500" | jq -r '.[].name' 2>/dev/null | grep -E '^php-[0-9]+\.[0-9]+\.[0-9]+$' >> "$tmp"
+  # fallback: GitHub tags API (100 tags a page), only if every page downloads
+  if [ "$ok" != y ] && command -v jq >/dev/null 2>&1; then
+    : > "$tmp"
+    for page in $(seq 1 50); do
+      if ! tags=$(curl -fsS --connect-timeout 5 --max-time 15 "https://api.github.com/repos/php/php-src/tags?page=${page}&per_page=100" 2>/dev/null) ||
+         ! names=$(printf '%s' "$tags" | jq -r '.[].name' 2>/dev/null); then
+        break
+      fi
+      # an empty page is the end of the list
+      if [ -z "$names" ]; then
+        ok=y
+        break
+      fi
+      printf '%s\n' "$names" | grep -E '^php-[0-9]+\.[0-9]+\.[0-9]+$' >> "$tmp"
     done
-    sort -t- -k2 -V -r -o "$tmp" "$tmp"
   fi
-  if grep -q '^php-[0-9]' "$tmp"; then
+  new_count=0
+  if [ "$ok" = y ]; then
+    sort -t- -k2 -V -r -u -o "$tmp" "$tmp"
+    new_count=$(grep -c '^php-[0-9]' "$tmp")
+  fi
+  old_count=$(grep -c '^php-[0-9]' "$phpversions" 2>/dev/null)
+  if [ "$new_count" -gt 0 ] && [ "$new_count" -ge "${old_count:-0}" ]; then
     chmod 0644 "$tmp"
     mv -f "$tmp" "$phpversions"
   else
     rm -f "$tmp"
-    # keep the last good list and mark it fresh, so an outage is not retried on every call
-    [ -s "$phpversions" ] && touch "$phpversions"
+    # keep the last good list and mark it fresh, so an outage is not retried
+    # on every call (getversions retries a list without tags after 5 minutes)
+    touch "$phpversions"
   fi
 }
 
@@ -41,8 +58,9 @@ getversions() {
   else
     phpfile_age=7201
   fi
-  # refresh when older than 2 hours, or when the cache holds no release tags
-  if [[ "$phpfile_age" -gt '7200' ]] || ! grep -q '^php-[0-9]' "$phpversions" 2>/dev/null; then
+  # refresh when older than 2 hours, or after 5 minutes when the cache holds
+  # no release tags
+  if [[ "$phpfile_age" -gt '7200' ]] || { [[ "$phpfile_age" -gt '300' ]] && ! grep -q '^php-[0-9]' "$phpversions" 2>/dev/null; }; then
     refresh_versions
   fi
 
