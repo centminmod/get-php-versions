@@ -11,7 +11,8 @@ refresh_versions() {
   # the last good list.
   local tmp ok=n page tags names old_count new_count
   tmp=$(mktemp "${phpversions}.XXXXXX") || return 1
-  trap 'rm -f "$tmp"' EXIT
+  # expand the path now: $tmp is local and gone once this function returns
+  trap "rm -f '$tmp'" EXIT
   # one git request, not subject to the GitHub API's 60 requests/hour limit
   if command -v git >/dev/null 2>&1; then
     if tags=$(timeout 30 git ls-remote --tags --refs https://github.com/php/php-src.git 'php-*' 2>/dev/null); then
@@ -39,7 +40,8 @@ refresh_versions() {
     sort -t- -k2 -V -r -u -o "$tmp" "$tmp"
     new_count=$(grep -c '^php-[0-9]' "$tmp")
   fi
-  old_count=$(grep -c '^php-[0-9]' "$phpversions" 2>/dev/null)
+  # unique tags: lists from older versions of this script can hold duplicates
+  old_count=$(grep '^php-[0-9]' "$phpversions" 2>/dev/null | sort -u | wc -l)
   if [ "$new_count" -gt 0 ] && [ "$new_count" -ge "${old_count:-0}" ]; then
     chmod 0644 "$tmp"
     mv -f "$tmp" "$phpversions"
